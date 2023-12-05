@@ -94,6 +94,32 @@ class Bird:
         screen.blit(self.img, self.rct)
 
 
+class Explosion:
+    """
+    爆発エフェクトに関するクラス
+    引数 center: 爆発エフェクトの中心位置を指定
+    imagesリスト: 爆発エフェクトに使用される画像のリストを格納する
+    """
+    def __init__(self, center):
+        self.images = [pg.image.load(f"ex03/fig/explosion.gif")] #画像を読み込み
+        self.images += [pg.transform.flip(img, True, False) for img in self.images]  # 上下左右にflipしたものを画像リストに格納
+        self.index = 0 # index変数は初期値を0としてインデックスを保持する。
+        self.image = self.images[self.index] #現在の画像を表示させる。
+        self.rct = self.image.get_rect()#爆発エフェクトを表示
+        self.rct.center = center #位置を設定
+        self.life = 10 #表示時間(10)lifeを設定
+
+
+    def update(self):
+        self.life -= 1#爆発経過時間lifeを１減算
+        if self.life <= 0: #0より小さい値の場合
+            return True  # 爆発が終了したことを示すためにTrueを返す
+        if self.index < len(self.images) - 1: #imagesリストの最後のインデックスに達していない場合、indexを更新する
+            self.index += 1
+        self.image = self.images[self.index]
+        return False  # 爆発が続行中であることを示すためにFalseを返す
+
+
 class Bomb:
     colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), 
               (255, 255, 0), (255, 0, 255), (0, 255, 255)]
@@ -153,9 +179,9 @@ def main():
     bird = Bird(3, (900, 400))
     bombs = [Bomb() for _ in range(NUM_OF_BOMBS)]  #BomsインスタンスがNUM個並んだリスト
     beam = None
-
     clock = pg.time.Clock()
     tmr = 0
+    explosions = []
     while True:
         for event in pg.event.get():
             if event.type == pg.QUIT:
@@ -176,12 +202,15 @@ def main():
         for i, bomb in enumerate(bombs):
             if beam is not None and beam.rct.colliderect(bomb.rct):
                 beam = None
+                explosions.append(Explosion(bomb.rct.center))
                 bombs[i] = None
                 bird.change_img(6, screen)
+                pg.display.update()
         # Noneでない爆弾だけのリスト作る        
         bombs = [bomb for bomb in bombs if bomb is not None]     
-
-
+        explosions = [explosion for explosion in explosions if not explosion.update()]
+        for explosion in explosions:
+            screen.blit(explosion.image, explosion.rct)
         key_lst = pg.key.get_pressed()
         bird.update(key_lst, screen)
         for bomb in bombs:
