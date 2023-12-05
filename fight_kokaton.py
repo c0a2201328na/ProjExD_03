@@ -2,7 +2,7 @@ import os
 import random
 import sys
 import time
-
+import math
 import pygame as pg
 
 
@@ -10,6 +10,7 @@ WIDTH = 1600  # ゲームウィンドウの幅
 HEIGHT = 900  # ゲームウィンドウの高さ
 MAIN_DIR = os.path.split(os.path.abspath(__file__))[0]
 NUM_OF_BOMBS = 5  #爆弾の数
+NUM_OF_BEAMS = 1
 
 def check_bound(obj_rct: pg.Rect) -> tuple[bool, bool]:
     """
@@ -42,6 +43,7 @@ class Bird:
         引数1 num：こうかとん画像ファイル名の番号
         引数2 xy：こうかとん画像の位置座標タプル
         """
+        self.dire =(+5, 0)
         img0 = pg.transform.rotozoom(pg.image.load(f"{MAIN_DIR}/fig/{num}.png"), 0, 2.0)
         img = pg.transform.flip(img0, True, False)  # デフォルトのこうかとん（右向き）
         self.imgs = {  # 0度から反時計回りに定義
@@ -101,14 +103,13 @@ class Explosion:
     imagesリスト: 爆発エフェクトに使用される画像のリストを格納する
     """
     def __init__(self, center):
-        self.images = [pg.image.load(f"ex03/fig/explosion.gif")] #画像を読み込み
+        self.images = [pg.image.load(f"ex03/fig/explosion.gif")] #爆発後の画像を読み込み
         self.images += [pg.transform.flip(img, True, False) for img in self.images]  # 上下左右にflipしたものを画像リストに格納
         self.index = 0 # index変数は初期値を0としてインデックスを保持する。
         self.image = self.images[self.index] #現在の画像を表示させる。
         self.rct = self.image.get_rect()#爆発エフェクトを表示
         self.rct.center = center #位置を設定
         self.life = 10 #表示時間(10)lifeを設定
-
 
     def update(self):
         self.life -= 1#爆発経過時間lifeを１減算
@@ -161,15 +162,35 @@ class Beam:
         self.rct.centery = bird.rct.centery  #こうかとん座標
         self.rct.centerx = bird.rct.centerx+bird.rct.width/2
         self.vx, self.vy = +5, 0
+        vx, vy = bird.dire
+        theta = math.atan2(-vy, vx) # 直交座標から極座標の角度を計算
+        angle = math.degrees(theta)
+        self.image2 = pg.transform.rotozoom(self.img, angle, 1)
+        self.rct = self.image2.get_rect()
+        self.rct.centerx = bird.rct.centerx + bird.rct.width * vx / 5
+        self.rct.centery = bird.rct.centery + bird.rct.height * vy / 5
+        self.vx = vx
+        self.vy = vy
 
     def update(self, screen: pg.Surface):
         """
         ビームを速度ベクトルself.vx, self.vyに基づき移動させる
         引数 screen：画面Surface
         """
-        
         self.rct.move_ip(self.vx, self.vy)
         screen.blit(self.img, self.rct)    
+
+
+class Score:
+    def __init__(self):
+        self.font = pg.font.SysFont("hgp創英角ﾎﾟｯﾌﾟ体", 30)
+        self.color = (0, 0, 255)
+        self.value = 0
+        self.update()
+        self.position = (100, 50)
+    def update(self):
+        self.img = self.font.render(f"Score: {self.value}", 0, self.color)
+        screen.blit(self.img, self.position)
 
 
 def main():
@@ -182,14 +203,14 @@ def main():
     clock = pg.time.Clock()
     tmr = 0
     explosions = []
+    multibeam = []
     while True:
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 return
             if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:  #スペースキーが押されたら
                 beam = Beam(bird)  #ビームインスタンス生成
-
-        
+                
         screen.blit(bg_img, [0, 0])
         
         for bomb in bombs:
@@ -206,6 +227,7 @@ def main():
                 bombs[i] = None
                 bird.change_img(6, screen)
                 pg.display.update()
+                
         # Noneでない爆弾だけのリスト作る        
         bombs = [bomb for bomb in bombs if bomb is not None]     
         explosions = [explosion for explosion in explosions if not explosion.update()]
